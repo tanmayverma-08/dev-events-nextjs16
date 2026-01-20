@@ -4,6 +4,8 @@ import BookEvent from "@/components/BookEvent";
 import {IEvent} from "@/database";
 import {getSimilarEventsBySlug} from "@/lib/actions/event.actions";
 import EventCard from "@/components/EventCard";
+import {cacheLife} from "next/cache";
+import {Suspense} from "react";
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
 
@@ -33,10 +35,14 @@ const EventTags = ({tags}: {tags: string[]}) => (
     </div>
 )
 
-const EventDetailsPage = async ({params}: {params: Promise<{slug: string}>}) => {
-    const { slug } = await params;
 
-    let event;
+
+async function EventDetailsContent ({ params }: { params: Promise<{ slug: string }> }) {
+    "use cache";
+    cacheLife("hours")
+
+    const {slug} = await params;
+    let event: IEvent | undefined;
     try {
         const request = await fetch(`${BASE_URL}/api/events/${slug}`, {next: {revalidate: 60}});
 
@@ -78,10 +84,10 @@ const EventDetailsPage = async ({params}: {params: Promise<{slug: string}>}) => 
                 <div className="content">
                     <Image src={image} alt="Event Banner" width={800} height={800} className="banner" />
 
-                     <section className="flex-col-gap-2">
-                         <h2>Overview</h2>
-                         <p>{overview}</p>
-                     </section>
+                    <section className="flex-col-gap-2">
+                        <h2>Overview</h2>
+                        <p>{overview}</p>
+                    </section>
 
                     <section className="flex-col-gap-2">
                         <h2>Event Details</h2>
@@ -116,7 +122,7 @@ const EventDetailsPage = async ({params}: {params: Promise<{slug: string}>}) => 
                             <p className="text-sm">Be the first to book your spot!</p>
                         )}
 
-                        <BookEvent/>
+                        <BookEvent eventId={event._id.toString()} slug={event.slug} />
                     </div>
                 </aside>
             </div>
@@ -132,4 +138,14 @@ const EventDetailsPage = async ({params}: {params: Promise<{slug: string}>}) => 
         </section>
     )
 }
-export default EventDetailsPage
+
+const EventDetailsPage = ({params}: {params: Promise<{slug: string}>}) => {
+    return(
+        <Suspense fallback={<div>Loading event...</div>}>
+            <EventDetailsContent params={params}/>
+        </Suspense>
+    )
+}
+
+export default EventDetailsPage;
+
